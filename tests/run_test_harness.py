@@ -130,7 +130,6 @@ if __name__ == '__main__':
         test_names_and_num_threads.append( (x[0], num_threads) )
         if args.run_async:
             test_names_and_num_threads.append( (x[0] + "_async", num_threads) )
-
     print("==============================================================="
           "=================")
     print("Running task system grading harness... (%d total tests)" % len(test_names_and_num_threads))

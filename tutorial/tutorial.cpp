@@ -10,25 +10,25 @@
 class Counter {
     public:
         int counter_;
-        std::mutex* mutex_;
+        std::mutex* main_mutex;
         Counter() {
             counter_ = 0;
-            mutex_ = new std::mutex();
+            main_mutex = new std::mutex();
         }
         ~Counter() {
-            delete mutex_;
+            delete main_mutex;
         }
 };
 
 void increment_counter_fn(Counter* counter) {
     for (int i = 0; i < 10000; i++) {
         // Call lock() method to acquire lock.
-        counter->mutex_->lock();
+        counter->main_mutex->lock();
         // Since multiple threads are trying to perform an increment, the
         // increment needs to be protected by a mutex.
         counter->counter_++;
         // Call unlock() method to release lock.
-        counter->mutex_->unlock();
+        counter->main_mutex->unlock();
     }
 }
 
@@ -64,35 +64,35 @@ void mutex_example() {
  */
 class ThreadState {
     public:
-        std::condition_variable* condition_variable_;
-        std::mutex* mutex_;
+        std::condition_variable* main_cr;
+        std::mutex* main_mutex;
         int counter_;
         int num_waiting_threads_;
         ThreadState(int num_waiting_threads) {
-            condition_variable_ = new std::condition_variable();
-            mutex_ = new std::mutex();
+            main_cr = new std::condition_variable();
+            main_mutex = new std::mutex();
             counter_ = 0;
             num_waiting_threads_ = num_waiting_threads;
         }
         ~ThreadState() {
-            delete condition_variable_;
-            delete mutex_;
+            delete main_cr;
+            delete main_mutex;
         }
 };
 
 void signal_fn(ThreadState* thread_state) {
     // Acquire mutex to make sure the shared counter is read in a
     // consistent state.
-    thread_state->mutex_->lock();
+    thread_state->main_mutex->lock();
     while (thread_state->counter_ < thread_state->num_waiting_threads_) {
-        thread_state->mutex_->unlock();
+        thread_state->main_mutex->unlock();
         // Release the mutex before calling `notify_all()` to make sure
         // waiting threads have a chance to make progress.
-        thread_state->condition_variable_->notify_all();
+        thread_state->main_cr->notify_all();
         // Re-acquire the mutex to read the shared counter again.
-        thread_state->mutex_->lock();
+        thread_state->main_mutex->lock();
     }
-    thread_state->mutex_->unlock();
+    thread_state->main_mutex->unlock();
 }
 
 void wait_fn(ThreadState* thread_state) {
@@ -100,8 +100,8 @@ void wait_fn(ThreadState* thread_state) {
     // This lock is atomically released before the thread goes to sleep
     // when `wait()` is called. The lock is atomically re-acquired when
     // the thread is woken up using `notify_all()`.
-    std::unique_lock<std::mutex> lk(*thread_state->mutex_);
-    thread_state->condition_variable_->wait(lk);
+    std::unique_lock<std::mutex> lk(*thread_state->main_mutex);
+    thread_state->main_cr->wait(lk);
     // Increment the shared counter with the lock re-acquired to inform the
     // signaling thread that this waiting thread has successfully been
     // woken up.
